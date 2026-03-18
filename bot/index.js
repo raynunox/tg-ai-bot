@@ -1,3 +1,5 @@
+require("dotenv").config()
+
 const TelegramBot = require("node-telegram-bot-api")
 
 const { mapSymbol, getCryptoPrice, getGoldPriceIdr } = require("./market")
@@ -6,49 +8,66 @@ const { callAI } = require("./aiCaller")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:false })
 
+/* =========================
+   SAFE TIMEOUT WRAPPER
+========================= */
+
+function withTimeout(promise, ms=12000){
+
+    return Promise.race([
+        promise,
+        new Promise((_,reject)=>
+            setTimeout(()=>reject(new Error("timeout")),ms)
+        )
+    ])
+}
+
+/* =========================
+   START ENGINE (ANTI CONFLICT)
+========================= */
+
 async function start(){
 
     try{
 
         await bot.deleteWebHook()
         await bot.stopPolling().catch(()=>{})
-        await bot.startPolling()
 
-        console.log("🚀 AI Agent Running")
+        await bot.startPolling({
+            interval:300,
+            autoStart:true,
+            params:{ timeout:10 }
+        })
+
+        console.log("🚀 AI Agent Stable Running")
 
     }catch(e){
-        console.log("START ERROR", e.message)
+        console.log("START ERROR:", e.message)
     }
 }
 
 start()
 
-// ⭐ SMART NEWS INTENT
+/* =========================
+   NEWS INTENT DETECTOR
+========================= */
+
 function detectNewsIntent(text){
 
     const t = text.toLowerCase()
 
-    return (
-        t.includes("news") ||
-        t.includes("berita") ||
-        t.includes("kenapa") ||
-        t.includes("apa yang terjadi") ||
-        t.includes("update") ||
-        t.includes("global") ||
-        t.includes("ekonomi")
-    )
+    const keys = [
+        "news","berita","update","kenapa",
+        "apa yang terjadi","global","ekonomi dunia",
+        "market kenapa","perang","inflasi"
+    ]
+
+    return keys.some(k=>t.includes(k))
 }
 
-// ⭐ SAFE AI CALL (ANTI CRASH)
-async function safeAI(prompt){
-
-    try{
-        return await callAI(prompt)
-    }catch(e){
-        console.log("AI FAIL:", e.response?.data || e.message)
-        return "otak gua ngehang bentar cuy… coba ulang."
-    }
-}
+/* =========================
+   MAIN MESSAGE ENGINE
+========================= */
 
 bot.on("message", async (msg)=>{
 
@@ -59,86 +78,148 @@ bot.on("message", async (msg)=>{
 
     try{
 
-        // ⭐ CRYPTO ROUTER (FAST PATH)
+        /* ===== CRYPTO ROUTER ===== */
+
         const symbol = mapSymbol(text)
 
         if(symbol){
 
-            const p = await getCryptoPrice(symbol)
+            try{
 
-            return bot.sendMessage(id,
+                const p = await withTimeout(getCryptoPrice(symbol),10000)
+
+                return bot.sendMessage(id,
 `💰 ${symbol}
 
 USD : $${p.usd.toFixed(2)}
 IDR : Rp ${Math.round(p.idr).toLocaleString()}
 24h : ${p.change24h.toFixed(2)}%`)
+
+            }catch(e){
+
+                console.log("CRYPTO FAIL:", e.message)
+
+                return bot.sendMessage(
+                    id,
+                    "market crypto lagi susah diambil datanya cuy… coba bentar lagi."
+                )
+            }
         }
 
-        // ⭐ GOLD ROUTER (FAST PATH)
+        /* ===== GOLD ROUTER ===== */
+
         if(text.toLowerCase().includes("emas")){
 
-            const g = await getGoldPriceIdr()
+            try{
 
-            return bot.sendMessage(id,
-`💰 Emas Spot
+                const g = await withTimeout(getGoldPriceIdr(),10000)
 
-Rp ${g.toLocaleString()} / gram`)
+                return bot.sendMessage(
+                    id,
+                    `💰 emas spot kira2
+
+Rp ${g.toLocaleString()} / gram`
+                )
+
+            }catch(e){
+
+                console.log("GOLD FAIL:", e.message)
+
+                return bot.sendMessage(
+                    id,
+                    "data emas lagi error cuy… API nya mungkin limit."
+                )
+            }
         }
 
-        // ⭐ NEWS ROUTER
+        /* ===== NEWS ROUTER ===== */
+
         if(detectNewsIntent(text)){
 
-            const news = await getGlobalNews(text)
+            try{
 
-            if(news.length){
+                const news = await withTimeout(getGlobalNews(text),12000)
 
-                const context = news.join("\n")
+                if(news.length){
 
-                const prompt =
-`Berita terbaru:
+                    const prompt =
+`Ini berita global terbaru:
 
-${context}
+${news.join("\n")}
 
 Jelaskan santai ke temen:
 apa yang terjadi + dampaknya.`
 
-                const ai = await safeAI(prompt)
+                    const ai = await withTimeout(callAI(prompt),15000)
 
-                return bot.sendMessage(id, ai)
+                    return bot.sendMessage(id, ai)
+                }
+
+            }catch(e){
+                console.log("NEWS FAIL:", e.message)
             }
         }
 
-        // ⭐ GENERAL AI MODE (DEFAULT SAVAGE HUMAN)
+        /* ===== GENERAL AI CHAT ===== */
 
-        const systemPrompt = `
-Lu AI super pinter tapi ngobrol kayak temen tongkrongan Indo.
+        const systemPrompt =
+`Lu AI super pintar tapi ngobrol kayak temen tongkrongan Indo.
 
 Natural.
 Savage halus.
 Santai.
-Conversational.
-Kadang sarkas tipis.
+Realistis.
+Gak corporate.
+Gak textbook.
 
-Ngerti crypto, emas, ekonomi dunia, tech, hal random umum.
+Ngerti crypto, emas, saham, ekonomi dunia, tech, hal random.
 
-Kalau user tanya realtime:
-jangan sok yakin.
-Kasih kisaran / kemungkinan.
+Realtime awareness:
+Kalau user tanya harga realtime → bilang kisaran.
+Kalau gak yakin → jujur.
 
-Jawaban jangan textbook.
-Jangan formal.
-Jangan bullet list mulu.
-Bikin feel ngobrol hidup.
-`
+Tujuan:
+bikin user ngerasa ngobrol sama manusia pinter.`
 
-        const reply = await safeAI(systemPrompt + "\nUser: " + text)
+        try{
 
-        return bot.sendMessage(id, reply)
+            const reply = await withTimeout(
+                callAI(systemPrompt + "\nUser: " + text),
+                15000
+            )
+
+            return bot.sendMessage(id, reply)
+
+        }catch(e){
+
+            console.log("AI FAIL:", e.message)
+
+            return bot.sendMessage(
+                id,
+                "otak gua lagi ngefreeze bentar cuy… coba ulang."
+            )
+        }
 
     }catch(e){
 
-        console.log("BOT ERROR:", e.response?.data || e.message || e)
+        console.log("FATAL BOT ERROR:", e)
 
-        return bot.sendMessage(id,"⚠️ system error bro")
+        return bot.sendMessage(
+            id,
+            "⚠️ system error parah bro"
+        )
     }
+
+})
+
+/* =========================
+   GLOBAL CRASH GUARD
+========================= */
+
+process.on("uncaughtException",(err)=>{
+    console.log("UNCAUGHT:",err)
+})
+
+process.on("unhandledRejection",(err)=>{
+    console.log("REJECTION:",err)
 })
