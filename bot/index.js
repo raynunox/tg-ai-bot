@@ -45,30 +45,6 @@ async function typing(id) {
 }
 
 /* =========================
-   START ENGINE (ANTI CONFLICT)
-========================= */
-
-async function start() {
-    try {
-        log("START", "Deleting webhook...")
-        await bot.deleteWebHook()
-        await bot.stopPolling().catch(() => {})
-
-        await bot.startPolling({
-            interval: 300,
-            autoStart: true,
-            params: { timeout: 10 }
-        })
-
-        log("START", "🚀 AI Agent Stable Running")
-    } catch (e) {
-        log("START ERROR", e.message)
-    }
-}
-
-start()
-
-/* =========================
    NEWS INTENT DETECTOR
 ========================= */
 
@@ -83,14 +59,37 @@ function detectNewsIntent(text) {
 }
 
 /* =========================
+   START ENGINE
+========================= */
+
+async function start() {
+    try {
+        log("START", "Deleting webhook...")
+        await bot.deleteWebHook()
+        await bot.stopPolling().catch(() => {})
+        await bot.startPolling({
+            interval: 300,
+            autoStart: true,
+            params: { timeout: 10 }
+        })
+        log("START", "🚀 AI Agent Stable Running")
+    } catch (e) {
+        log("START ERROR", e.message)
+    }
+}
+
+start()
+
+/* =========================
    MAIN MESSAGE ENGINE
 ========================= */
 
 bot.on("message", async (msg) => {
-    const text = msg?.text?.trim()
     const id = msg?.chat?.id
-
     if (!id) return
+
+    const text = msg?.text?.trim()
+    const caption = msg?.caption?.trim() || ""
 
     log("MSG", `from ${id}: "${text || "[media]"}"`)
 
@@ -105,7 +104,6 @@ bot.on("message", async (msg) => {
                 const fileId = msg.photo[msg.photo.length - 1].file_id
                 const fileInfo = await bot.getFile(fileId)
                 const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${fileInfo.file_path}`
-                const caption = msg.caption || ""
                 const result = await withTimeout(analyzeImage(fileUrl, caption), 25000)
                 return bot.sendMessage(id, result)
             } catch (e) {
@@ -118,11 +116,9 @@ bot.on("message", async (msg) => {
         if (msg.document) {
             log("ROUTE", "document")
             const mime = msg.document.mime_type || ""
-            const caption = msg.caption || ""
             try {
                 const fileInfo = await bot.getFile(msg.document.file_id)
                 const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${fileInfo.file_path}`
-
                 if (mime === "application/pdf") {
                     const result = await withTimeout(analyzePdf(fileUrl, caption), 35000)
                     return bot.sendMessage(id, result)
@@ -138,14 +134,8 @@ bot.on("message", async (msg) => {
             }
         }
 
+        /* ===== GUARD: text only beyond this point ===== */
         if (!text) return
-
-    log("MSG", `from ${id}: "${text}"`)
-
-    // Langsung kirim typing sebelum proses apapun
-    await typing(id)
-
-    try {
 
         /* ===== URL READER ROUTER ===== */
         const url = extractUrl(text)
@@ -190,7 +180,6 @@ Jawab pertanyaan user berdasarkan hasil di atas, santai dan to the point.`
 
         /* ===== CRYPTO ROUTER ===== */
         const symbol = mapSymbol(text)
-
         if (symbol) {
             log("ROUTE", `crypto → ${symbol}`)
             try {
@@ -237,7 +226,6 @@ Rp ${g.toLocaleString()} / gram`)
             log("ROUTE", "news")
             try {
                 const news = await withTimeout(getGlobalNews(text), 10000)
-
                 if (news && news.length) {
                     await typing(id)
                     const prompt =
@@ -246,20 +234,11 @@ Rp ${g.toLocaleString()} / gram`)
 ${news.join("\n")}
 
 Jelaskan santai ke temen: apa yang terjadi + dampaknya.`
-
                     const ai = await withTimeout(callAI(prompt), 12000)
                     return bot.sendMessage(id, ai)
-                } else {
-                    log("NEWS", "empty result → fallback AI")
-                    await typing(id)
-                    const reply = await withTimeout(callAI(text), 10000)
-                    return bot.sendMessage(id, reply)
                 }
             } catch (e) {
                 log("NEWS FAIL", `${e.message} → fallback AI`)
-                await typing(id)
-                const reply = await withTimeout(callAI(text), 10000)
-                return bot.sendMessage(id, reply)
             }
         }
 
