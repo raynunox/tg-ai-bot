@@ -6,6 +6,7 @@ const { formatTelegram, splitMessage } = require("./formatter")
 const { callGemini } = require("./aiCaller")
 const { getMood, setMood, getIdentity, detectMood } = require("./personality")
 const { isRealtimeQuestion, realtimeStyleAnswer } = require("./realtime")
+const { getGlobalNews } = require("./news")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:true })
 
@@ -52,11 +53,54 @@ function detectStyle(text){
     return null
 }
 
+function detectNewsIntent(text){
+
+    const t = text.toLowerCase()
+
+    const keys = [
+        "news",
+        "berita",
+        "apa yang terjadi",
+        "update dunia",
+        "update global",
+        "kenapa market",
+        "kenapa btc",
+        "kenapa saham",
+        "ekonomi dunia",
+        "geopolitik"
+    ]
+
+    return keys.some(k => t.includes(k))
+}
+
 bot.on("message", async (msg)=>{
     const text = msg.text
     const id = msg.chat.id
     if(!text) return
+if(detectNewsIntent(text)){
 
+    const news = await getGlobalNews(text)
+
+    if(news.length){
+
+        const context =
+            news.map(n => n.title).join("\n")
+
+        const prompt =
+`Berikut berita terbaru dunia:
+
+${context}
+
+Jelaskan ke user secara natural:
+- apa yang sedang terjadi
+- kenapa penting
+- kemungkinan dampaknya`
+
+        const ai = await callGemini(prompt)
+
+        return sendFast(id, ai)
+    }
+}
     // ⭐ STYLE SWITCH
     const newStyle = detectStyle(text)
     if(newStyle){
