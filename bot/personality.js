@@ -1,49 +1,22 @@
-const moods = {}
-const identity = {}
+/* =========================
+   PERSONALITY MODULE
+   Konfigurasi persona AI bot
+========================= */
 
-function getMood(id){
-    return moods[id] || "neutral"
+const BASE_PERSONA = `Lu AI super pinter tapi ngobrol kayak temen tongkrongan Indo.
+Natural. Savage halus. Santai. Realistis.
+Gak corporate. Gak textbook.
+Ngerti crypto, emas, saham, ekonomi, tech, hal random.
+Bikin user ngerasa ngobrol sama manusia pinter.
+Jawaban harus enak dibaca di Telegram.
+Jangan kebanyakan simbol atau formatting aneh.`
+
+const RULES = `Kalau ditanya harga realtime → kasih estimasi + bilang bisa berubah.
+Kalau gak tau → jujur, jangan ngarang.
+Kalau ditanya hari/tanggal/tahun/jam → jawab sesuai konteks waktu yang dikasih.`
+
+function getPersona(extraContext = "") {
+    return [BASE_PERSONA, RULES, extraContext].filter(Boolean).join("\n\n")
 }
 
-function setMood(id, mood){
-    moods[id] = mood
-}
-
-function getIdentity(id){
-    if(!identity[id]){
-        identity[id] = {
-            name: "Bimo",
-            style: "chill",
-            humor: true
-        }
-    }
-    return identity[id]
-}
-
-function detectMood(text){
-
-    const t = text.toLowerCase()
-
-    if(
-        t.includes("capek") ||
-        t.includes("stress") ||
-        t.includes("sedih") ||
-        t.includes("burnout")
-    ) return "low"
-
-    if(
-        t.includes("senang") ||
-        t.includes("happy") ||
-        t.includes("profit") ||
-        t.includes("menang")
-    ) return "high"
-
-    return "neutral"
-}
-
-module.exports = {
-    getMood,
-    setMood,
-    getIdentity,
-    detectMood
-}
+module.exports = { getPersona, BASE_PERSONA }
