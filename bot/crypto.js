@@ -7,4 +7,9 @@ async function price(symbol){
     return r.data.price
 }
 
-module.exports = { price }
+async function signal(symbol){
+    const p = await price(symbol)
+    return `AI Quick Signal ${symbol}\nPrice: $${p}\nBias: Neutral`
+}
+
+module.exports = { price, signal }
