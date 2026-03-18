@@ -129,8 +129,10 @@ const reply = await callAI(systemPrompt + "\nUser: " + text)
 
     }catch(e){
 
-        return bot.sendMessage(id,"⚠️ system error bro")
-    }
+    console.log("BOT ERROR:", e.response?.data || e.message || e)
+
+    return bot.sendMessage(id,"⚠️ system error bro")
+}
 
 })
 
