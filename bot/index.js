@@ -1,5 +1,8 @@
-require("dotenv").config()
 const TelegramBot = require("node-telegram-bot-api")
+
+const { mapSymbol, getCryptoPrice, getGoldPriceIdr } = require("./market")
+const { getGlobalNews } = require("./news")
+const { callAI } = require("./aiCaller")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:false })
 
@@ -8,9 +11,7 @@ async function start(){
     try{
 
         await bot.deleteWebHook()
-
         await bot.stopPolling().catch(()=>{})
-
         await bot.startPolling()
 
         console.log("🚀 AI Agent Running")
@@ -21,12 +22,6 @@ async function start(){
 }
 
 start()
-const TelegramBot = require("node-telegram-bot-api")
-const { mapSymbol, getCryptoPrice, getGoldPriceIdr } = require("./market")
-const { getGlobalNews } = require("./news")
-const { callAI } = require("./aiCaller")
-
-const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:true })
 
 function detectNewsIntent(text){
 
@@ -63,11 +58,10 @@ bot.on("message", async (msg)=>{
             const p = await getCryptoPrice(symbol)
 
             return bot.sendMessage(id,
-`💰 ${symbol} sekarang
+`💰 ${symbol}
 
 USD : $${p.usd.toFixed(2)}
 IDR : Rp ${Math.round(p.idr).toLocaleString()}
-
 24h : ${p.change24h.toFixed(2)}%`)
         }
 
@@ -77,7 +71,7 @@ IDR : Rp ${Math.round(p.idr).toLocaleString()}
             const g = await getGoldPriceIdr()
 
             return bot.sendMessage(id,
-`💰 harga emas spot
+`💰 Emas Spot
 
 Rp ${g.toLocaleString()} / gram`)
         }
@@ -96,8 +90,7 @@ Rp ${g.toLocaleString()} / gram`)
 
 ${context}
 
-Jelaskan secara natural ke user:
-apa yang terjadi dan dampaknya.`
+Jelaskan santai apa yang terjadi dan dampaknya.`
 
                 const ai = await callAI(prompt)
 
@@ -105,56 +98,31 @@ apa yang terjadi dan dampaknya.`
             }
         }
 
-        // ⭐ GENERAL AI CHAT
+        // ⭐ GENERAL AI CHAT (SAVAGE HUMAN MODE)
+
         const systemPrompt = `
-Lu adalah AI agent super pintar tapi ngobrol kayak temen tongkrongan Indo.
+Lu AI super pinter tapi ngobrol kayak temen tongkrongan Indo.
 
-Karakter:
-- savage halus
-- jujur
-- natural
-- gak formal
-- gak corporate
-- gak textbook
-- gak lebay motivator
+Natural.
+Savage halus.
+Gak formal.
+Gak textbook.
+Conversational.
 
-Style:
-- conversational
-- kadang pake kata: cuy, bro, wkwk
-- boleh sarkas ringan
-- boleh opini realistis
-- jangan bullet list terus
-- jangan panjang kaku
+Ngerti crypto, emas, ekonomi dunia, tech, hal random umum.
 
-Knowledge:
-- ngerti crypto
-- ngerti market global
-- ngerti emas
-- ngerti tech
-- ngerti ekonomi dunia
-- ngerti hal random umum
-
-Realtime awareness:
-- kalo user tanya harga realtime → jangan halu
-- kalo gak yakin → bilang kemungkinan / kisaran
-- boleh suggest cek exchange
-
-Tujuan:
-- bikin user ngerasa ngobrol sama manusia pinter
-- bukan chatbot customer service
+Kalau realtime → jangan halu.
+Kalau gak yakin → bilang kemungkinan.
 `
 
-const reply = await callAI(systemPrompt + "\nUser: " + text)
+        const reply = await callAI(systemPrompt + "\nUser: " + text)
 
         return bot.sendMessage(id, reply)
 
     }catch(e){
 
-    console.log("BOT ERROR:", e.response?.data || e.message || e)
+        console.log("BOT ERROR:", e.response?.data || e.message || e)
 
-    return bot.sendMessage(id,"⚠️ system error bro")
-}
-
+        return bot.sendMessage(id,"⚠️ system error bro")
+    }
 })
-
-console.log("🚀 AI Agent Running")
