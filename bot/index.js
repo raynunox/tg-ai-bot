@@ -169,7 +169,8 @@ bot.on("message", async (msg) => {
 
 ${results.join("\n\n")}
 
-Jawab pertanyaan user berdasarkan hasil di atas, santai dan to the point.`
+Jawab pertanyaan user berdasarkan hasil di atas, santai dan to the point.
+Kalau ada link yang relevan, sertakan linknya di jawaban.`
                     const reply = await withTimeout(callAI(prompt), 12000)
                     return bot.sendMessage(id, reply)
                 }
