@@ -1,13 +1,13 @@
 const TelegramBot = require("node-telegram-bot-api")
-const axios = require("axios")
 
 const { getHistory, pushHistory, setStyle, getStyle } = require("./memory")
 const { price } = require("./crypto")
 const { formatTelegram, splitMessage } = require("./formatter")
+const { callGemini } = require("./aiCaller")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:true })
 
-async function fastSend(id,text){
+async function sendFast(id,text){
     const formatted = formatTelegram(text)
     const parts = splitMessage(formatted,2500)
 
@@ -19,7 +19,7 @@ async function fastSend(id,text){
     }
 }
 
-function detectPrice(text){
+function detectPriceIntent(text){
     const t = text.toLowerCase()
     const coins = ["btc","eth","sol","bnb","arb","op","avax","link","doge"]
 
@@ -39,13 +39,13 @@ function detectPrice(text){
 function detectStyle(text){
     const t = text.toLowerCase()
 
-    if(t.includes("santai") || t.includes("casual"))
+    if(t.includes("santai") || t.includes("casual") || t.includes("kayak temen"))
         return "casual"
 
-    if(t.includes("trader") || t.includes("analisa"))
+    if(t.includes("trader") || t.includes("analisa") || t.includes("crypto mode"))
         return "crypto"
 
-    if(t.includes("formal"))
+    if(t.includes("formal") || t.includes("serius"))
         return "formal"
 
     return null
@@ -56,28 +56,29 @@ bot.on("message", async (msg)=>{
     const id = msg.chat.id
     if(!text) return
 
-    // ⚡ STYLE SWITCH NATURAL
+    // ⭐ STYLE SWITCH NATURAL
     const newStyle = detectStyle(text)
     if(newStyle){
         setStyle(id,newStyle)
-        return fastSend(id,`oke noted 👍 sekarang gua ngobrol mode **${newStyle}**`)
+        return sendFast(id,`oke noted 👍 sekarang gua ngobrol mode **${newStyle}**`)
     }
 
-    // ⚡ LIVE PRICE ROUTER (SUPER CEPAT)
-    const coin = detectPrice(text)
+    // ⭐ LIVE PRICE TOOL (SUPER CEPAT)
+    const coin = detectPriceIntent(text)
     if(coin){
         try{
             const p = await price(coin)
-            return fastSend(id,
-                `**${coin} sekarang** sekitar 💰 ${p} USDT\n`+
-                `market lagi agak random sih… jangan gas dulu 😅`
+            return sendFast(id,
+                `hmm bentar gua cek 👀\n\n`+
+                `**${coin} sekarang sekitar**\n💰 ${p} USDT\n\n`+
+                `market lagi agak random sih… santai aja dulu 😅`
             )
         }catch{
             return bot.sendMessage(id,"gagal ambil price bro")
         }
     }
 
-    // ⚡ THINKING UX (instant feel)
+    // ⭐ THINKING UX
     bot.sendChatAction(id,"typing")
 
     const history = getHistory(id)
@@ -89,25 +90,25 @@ bot.on("message", async (msg)=>{
 
     if(style === "casual"){
         persona =
-        "Ngomong kayak temen crypto nongkrong. Natural. Santai. Insightful."
+        "Ngomong kayak temen crypto nongkrong. Natural. Insightful. Santai."
     }
 
     if(style === "crypto"){
         persona =
-        "Ngomong kayak trader berpengalaman. Fokus probabilitas."
+        "Ngomong kayak trader berpengalaman. Fokus probabilitas market."
     }
 
     if(style === "formal"){
         persona =
-        "Ngomong profesional tapi tetap manusia."
+        "Ngomong profesional tapi tetap manusiawi."
     }
 
     const prompt =
-`Lu AI crypto assistant yang smart banget.
+`Lu AI crypto assistant yang pinter banget.
 Ngobrol natural kayak manusia.
-Gak usah panjang.
-Gak usah tutorial.
-Kasih insight / opini / probabilitas.
+Jangan kaku.
+Jangan tutorial.
+Kasih opini & intuisi market.
 
 ${persona}
 
@@ -116,30 +117,18 @@ ${history.map(h=>`${h.role}: ${h.content}`).join("\n")}
 `
 
     try{
-        const res = await axios.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+process.env.GOOGLE_API_KEY,
-            {
-                contents:[
-                    {
-                        parts:[{ text: prompt }]
-                    }
-                ]
-            },
-            { timeout:20000 }
-        )
 
-        const reply =
-        res.data.candidates?.[0]?.content?.parts?.[0]?.text
-        || "hmm otak gua ngeblank bentar 😅"
+        const reply = await callGemini(prompt)
 
         pushHistory(id,"assistant",reply)
 
-        await fastSend(id,reply)
+        await sendFast(id,reply)
 
     }catch(e){
-        console.log(e.response?.data || e.message)
-        bot.sendMessage(id,"AI lagi lemot / quota mungkin")
+        console.log(e)
+        bot.sendMessage(id,"AI lagi sibuk bro 😅 coba bentar lagi")
     }
+
 })
 
-console.log("⚡ ULTRA FAST SMART AI AGENT READY")
+console.log("⚡ SUPER STABLE NATURAL AI AGENT READY")
