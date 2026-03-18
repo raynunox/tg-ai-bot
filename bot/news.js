@@ -1,7 +1,6 @@
 const axios = require("axios")
 
-const CMC_KEY = process.env.CMC_API_KEY
-const GOLD_KEY = process.env.GOLD_API_KEY
+const GNEWS_KEY = process.env.GNEWS_API_KEY
 
 function log(tag, msg) {
     const time = new Date().toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta" })
@@ -9,105 +8,53 @@ function log(tag, msg) {
 }
 
 /* =========================
-   SYMBOL MAPPER
-   text → CMC symbol
+   KEYWORD EXTRACTOR
 ========================= */
 
-const SYMBOL_MAP = {
-    btc: "BTC", bitcoin: "BTC",
-    eth: "ETH", ethereum: "ETH",
-    bnb: "BNB",
-    sol: "SOL", solana: "SOL",
-    xrp: "XRP", ripple: "XRP",
-    doge: "DOGE", dogecoin: "DOGE",
-    ada: "ADA", cardano: "ADA",
-    dot: "DOT", polkadot: "DOT",
-    avax: "AVAX", avalanche: "AVAX",
-    matic: "MATIC", polygon: "MATIC",
-    link: "LINK", chainlink: "LINK",
-    ltc: "LTC", litecoin: "LTC",
-    shib: "SHIB",
-    ton: "TON",
-    pepe: "PEPE",
-    trx: "TRX", tron: "TRX",
-    sui: "SUI",
-    apt: "APT", aptos: "APT",
-    arb: "ARB", arbitrum: "ARB",
-    op: "OP", optimism: "OP",
-}
-
-function mapSymbol(text) {
-    const t = text.toLowerCase().trim()
-    return SYMBOL_MAP[t] || null
+function extractKeyword(text) {
+    const stopwords = ["kenapa", "apa", "yang", "terjadi", "gimana", "soal", "tentang", "update", "berita", "news"]
+    const words = text.toLowerCase().split(/\s+/).filter(w => !stopwords.includes(w) && w.length > 2)
+    return words.slice(0, 3).join(" ") || "global economy"
 }
 
 /* =========================
-   CRYPTO PRICE (CoinMarketCap)
+   GET GLOBAL NEWS
 ========================= */
 
-async function getCryptoPrice(symbol) {
-    log("MARKET", `fetching CMC: ${symbol}`)
+async function getGlobalNews(query = "") {
+    const keyword = extractKeyword(query)
+    log("NEWS", `fetching gnews for: "${keyword}"`)
 
-    // Get USD price from CMC
-    const cmcRes = await axios.get(
-        "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
-        {
-            params: { symbol, convert: "USD" },
-            headers: { "X-CMC_PRO_API_KEY": CMC_KEY },
-            timeout: 8000
-        }
-    )
+    if (!GNEWS_KEY) {
+        log("NEWS", "GNEWS_API_KEY not set, skipping")
+        return []
+    }
 
-    const data = cmcRes.data?.data?.[symbol]?.quote?.USD
-    if (!data) throw new Error(`no CMC data for ${symbol}`)
-
-    // Get IDR rate from USD
-    const fxRes = await axios.get(
-        "https://api.exchangerate-api.com/v4/latest/USD",
-        { timeout: 5000 }
-    )
-    const idrRate = fxRes.data?.rates?.IDR ?? 16000
-
-    const usd = data.price
-    const idr = usd * idrRate
-    const change24h = data.percent_change_24h ?? 0
-
-    log("MARKET", `${symbol} → $${usd.toFixed(2)} | Rp ${Math.round(idr).toLocaleString()}`)
-
-    return { usd, idr, change24h }
-}
-
-/* =========================
-   GOLD PRICE IDR (goldapi.io)
-========================= */
-
-async function getGoldPriceIdr() {
-    log("MARKET", "fetching goldapi.io...")
-
-    const res = await axios.get("https://www.goldapi.io/api/XAU/USD", {
-        headers: {
-            "x-access-token": GOLD_KEY,
-            "Content-Type": "application/json"
+    const res = await axios.get("https://gnews.io/api/v4/search", {
+        params: {
+            q: keyword,
+            lang: "en",
+            max: 5,
+            sortby: "publishedAt",
+            apikey: GNEWS_KEY
         },
-        timeout: 8000
+        timeout: 10000
     })
 
-    const pricePerOz = res.data?.price
-    if (!pricePerOz) throw new Error("gold data unavailable")
+    const articles = res.data?.articles ?? []
 
-    // Get IDR rate
-    const fxRes = await axios.get(
-        "https://api.exchangerate-api.com/v4/latest/USD",
-        { timeout: 5000 }
-    )
-    const idrRate = fxRes.data?.rates?.IDR ?? 16000
+    if (!articles.length) {
+        log("NEWS", "no articles found")
+        return []
+    }
 
-    // 1 troy oz = 31.1035 gram
-    const pricePerGram = (pricePerOz * idrRate) / 31.1035
+    const results = articles
+        .filter(a => a.title && a.description)
+        .slice(0, 5)
+        .map(a => `• ${a.title} — ${a.description}`)
 
-    log("MARKET", `gold → $${pricePerOz}/oz | Rp ${Math.round(pricePerGram).toLocaleString()}/gram`)
-
-    return Math.round(pricePerGram)
+    log("NEWS", `got ${results.length} articles`)
+    return results
 }
 
-module.exports = { mapSymbol, getCryptoPrice, getGoldPriceIdr }
+module.exports = { getGlobalNews }
