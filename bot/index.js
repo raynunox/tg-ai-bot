@@ -5,6 +5,7 @@ const { price } = require("./crypto")
 const { formatTelegram, splitMessage } = require("./formatter")
 const { callGemini } = require("./aiCaller")
 const { getMood, setMood, getIdentity, detectMood } = require("./personality")
+const { isRealtimeQuestion, realtimeStyleAnswer } = require("./realtime")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:true })
 
@@ -60,21 +61,33 @@ bot.on("message", async (msg)=>{
     const newStyle = detectStyle(text)
     if(newStyle){
         setStyle(id,newStyle)
-        return sendFast(id,`oke noted 👍 sekarang style ngobrol gua **${newStyle}**`)
+        return sendFast(id,`oke noted 👍 sekarang style ngobrol gua <b>${newStyle}</b>`)
     }
 
-    // ⭐ PRICE TOOL (FAST ROUTER)
+    // ⭐ REALTIME AWARE ROUTER (GLOBAL)
+    const realtime = isRealtimeQuestion(text)
+
+    // ⭐ PRICE TOOL (kalau crypto coin)
     const coin = detectPriceIntent(text)
     if(coin){
         try{
             const p = await price(coin)
             return sendFast(id,
                 `bentar gua cek 👀\n\n`+
-                `<b>${coin} sekarang sekitar</b>\n💰 ${p} USDT`
+                `<b>${coin} sekarang sekitar</b>\n💰 ${p} USDT\n\n`+
+                `market gerak terus ya jadi bisa beda dikit.`
             )
         }catch{
             return bot.sendMessage(id,"gagal ambil price bro")
         }
+    }
+
+    // ⭐ kalau realtime tapi bukan toolable
+    if(realtime){
+        return sendFast(
+            id,
+            realtimeStyleAnswer("harga / market")
+        )
     }
 
     // ⭐ THINKING UX
@@ -97,37 +110,35 @@ bot.on("message", async (msg)=>{
         styleInstruction = "Jawab lebih rapi dan profesional."
 
     if(style === "deep")
-        styleInstruction = "Jawab lebih dalam, analitis, dan insightful."
+        styleInstruction = "Jawab lebih dalam dan analitis."
 
     if(style === "casual")
-        styleInstruction = "Jawab santai banget kayak temen nongkrong."
+        styleInstruction = "Jawab santai kayak temen nongkrong."
 
     const prompt =
 `Lu adalah AI bernama ${persona.name}.
 
 Karakter:
-- sangat natural
-- ngobrol kayak manusia real
-- cerdas tapi santai
-- kadang humor ringan
+- natural
+- cerdas
+- santai
+- manusiawi
 - gak textbook AI
-- gak terlalu panjang
 
-Mood user sekarang: ${userMood}
+Mood user: ${userMood}
 
 Behavior:
-- kalau user low mood → empati
-- kalau user high mood → fun & hype
-- kalau neutral → chill normal
+- low mood → empati
+- high mood → fun
+- neutral → chill
 
-Lu bisa bahas topik apa aja:
-hidup, teknologi, bisnis, crypto, game, relationship, random thoughts.
+Lu bisa bahas topik apa aja.
 
 ${styleInstruction}
 
-Kasih opini real, perspektif, intuisi.
+Kasih opini real & perspektif.
 Jangan generik.
-Jangan tutorial tone.
+Jangan panjang.
 
 Conversation:
 ${history.map(h=>`${h.role}: ${h.content}`).join("\n")}
@@ -143,9 +154,9 @@ ${history.map(h=>`${h.role}: ${h.content}`).join("\n")}
 
     }catch(e){
         console.log(e)
-        bot.sendMessage(id,"AI lagi sibuk bentar 😅 coba ulang ya")
+        bot.sendMessage(id,"AI lagi sibuk bentar 😅")
     }
 
 })
 
-console.log("🌍 GLOBAL HUMAN AI ENGINE READY")
+console.log("🌍 REALTIME AWARE GLOBAL AI READY")
