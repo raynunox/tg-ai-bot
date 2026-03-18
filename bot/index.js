@@ -4,6 +4,7 @@ const { getHistory, pushHistory, setStyle, getStyle } = require("./memory")
 const { price } = require("./crypto")
 const { formatTelegram, splitMessage } = require("./formatter")
 const { callGemini } = require("./aiCaller")
+const { getMood, setMood, getIdentity, detectMood } = require("./personality")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:true })
 
@@ -24,12 +25,16 @@ function detectPriceIntent(text){
     const coins = ["btc","eth","sol","bnb","arb","op","avax","link","doge"]
 
     for(const c of coins){
-        if(t.includes(c) &&
-          (t.includes("harga") ||
-           t.includes("berapa") ||
-           t.includes("price") ||
-           t.includes("sekarang") ||
-           t.includes("now"))){
+        if(
+            t.includes(c) &&
+            (
+                t.includes("harga") ||
+                t.includes("price") ||
+                t.includes("berapa") ||
+                t.includes("now") ||
+                t.includes("sekarang")
+            )
+        ){
             return c.toUpperCase()
         }
     }
@@ -39,14 +44,9 @@ function detectPriceIntent(text){
 function detectStyle(text){
     const t = text.toLowerCase()
 
-    if(t.includes("santai") || t.includes("casual") || t.includes("kayak temen"))
-        return "casual"
-
-    if(t.includes("trader") || t.includes("analisa") || t.includes("crypto mode"))
-        return "crypto"
-
-    if(t.includes("formal") || t.includes("serius"))
-        return "formal"
+    if(t.includes("formal")) return "formal"
+    if(t.includes("santai") || t.includes("casual")) return "casual"
+    if(t.includes("serius") || t.includes("analisa")) return "deep"
 
     return null
 }
@@ -56,22 +56,21 @@ bot.on("message", async (msg)=>{
     const id = msg.chat.id
     if(!text) return
 
-    // ⭐ STYLE SWITCH NATURAL
+    // ⭐ STYLE SWITCH
     const newStyle = detectStyle(text)
     if(newStyle){
         setStyle(id,newStyle)
-        return sendFast(id,`oke noted 👍 sekarang gua ngobrol mode **${newStyle}**`)
+        return sendFast(id,`oke noted 👍 sekarang style ngobrol gua **${newStyle}**`)
     }
 
-    // ⭐ LIVE PRICE TOOL (SUPER CEPAT)
+    // ⭐ PRICE TOOL (FAST ROUTER)
     const coin = detectPriceIntent(text)
     if(coin){
         try{
             const p = await price(coin)
             return sendFast(id,
-                `hmm bentar gua cek 👀\n\n`+
-                `**${coin} sekarang sekitar**\n💰 ${p} USDT\n\n`+
-                `market lagi agak random sih… santai aja dulu 😅`
+                `bentar gua cek 👀\n\n`+
+                `<b>${coin} sekarang sekitar</b>\n💰 ${p} USDT`
             )
         }catch{
             return bot.sendMessage(id,"gagal ambil price bro")
@@ -84,33 +83,51 @@ bot.on("message", async (msg)=>{
     const history = getHistory(id)
     pushHistory(id,"user",text)
 
+    // ⭐ PERSONALITY ENGINE
+    const mood = detectMood(text)
+    setMood(id,mood)
+
+    const userMood = getMood(id)
+    const persona = getIdentity(id)
     const style = getStyle(id)
 
-    let persona = ""
+    let styleInstruction = ""
 
-    if(style === "casual"){
-        persona =
-        "Ngomong kayak temen crypto nongkrong. Natural. Insightful. Santai."
-    }
+    if(style === "formal")
+        styleInstruction = "Jawab lebih rapi dan profesional."
 
-    if(style === "crypto"){
-        persona =
-        "Ngomong kayak trader berpengalaman. Fokus probabilitas market."
-    }
+    if(style === "deep")
+        styleInstruction = "Jawab lebih dalam, analitis, dan insightful."
 
-    if(style === "formal"){
-        persona =
-        "Ngomong profesional tapi tetap manusiawi."
-    }
+    if(style === "casual")
+        styleInstruction = "Jawab santai banget kayak temen nongkrong."
 
     const prompt =
-`Lu AI crypto assistant yang pinter banget.
-Ngobrol natural kayak manusia.
-Jangan kaku.
-Jangan tutorial.
-Kasih opini & intuisi market.
+`Lu adalah AI bernama ${persona.name}.
 
-${persona}
+Karakter:
+- sangat natural
+- ngobrol kayak manusia real
+- cerdas tapi santai
+- kadang humor ringan
+- gak textbook AI
+- gak terlalu panjang
+
+Mood user sekarang: ${userMood}
+
+Behavior:
+- kalau user low mood → empati
+- kalau user high mood → fun & hype
+- kalau neutral → chill normal
+
+Lu bisa bahas topik apa aja:
+hidup, teknologi, bisnis, crypto, game, relationship, random thoughts.
+
+${styleInstruction}
+
+Kasih opini real, perspektif, intuisi.
+Jangan generik.
+Jangan tutorial tone.
 
 Conversation:
 ${history.map(h=>`${h.role}: ${h.content}`).join("\n")}
@@ -126,9 +143,9 @@ ${history.map(h=>`${h.role}: ${h.content}`).join("\n")}
 
     }catch(e){
         console.log(e)
-        bot.sendMessage(id,"AI lagi sibuk bro 😅 coba bentar lagi")
+        bot.sendMessage(id,"AI lagi sibuk bentar 😅 coba ulang ya")
     }
 
 })
 
-console.log("⚡ SUPER STABLE NATURAL AI AGENT READY")
+console.log("🌍 GLOBAL HUMAN AI ENGINE READY")
