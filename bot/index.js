@@ -4,6 +4,9 @@ const TelegramBot = require("node-telegram-bot-api")
 const { mapSymbol, getCryptoPrice, getGoldPriceIdr } = require("./market")
 const { getGlobalNews } = require("./news")
 const { callAI } = require("./aiCaller")
+const { extractUrl, readUrl } = require("./webReader")
+const { searchWeb, detectSearchIntent } = require("./searcher")
+const { analyzeImage, analyzePdf } = require("./vision")
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: false })
 
@@ -87,7 +90,55 @@ bot.on("message", async (msg) => {
     const text = msg?.text?.trim()
     const id = msg?.chat?.id
 
-    if (!text || !id) return
+    if (!id) return
+
+    log("MSG", `from ${id}: "${text || "[media]"}"`)
+
+    await typing(id)
+
+    try {
+
+        /* ===== PHOTO ROUTER ===== */
+        if (msg.photo) {
+            log("ROUTE", "photo")
+            try {
+                const fileId = msg.photo[msg.photo.length - 1].file_id
+                const fileInfo = await bot.getFile(fileId)
+                const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${fileInfo.file_path}`
+                const caption = msg.caption || ""
+                const result = await withTimeout(analyzeImage(fileUrl, caption), 25000)
+                return bot.sendMessage(id, result)
+            } catch (e) {
+                log("PHOTO FAIL", e.message)
+                return bot.sendMessage(id, "gagal baca gambarnya cuy, coba kirim ulang.")
+            }
+        }
+
+        /* ===== DOCUMENT ROUTER ===== */
+        if (msg.document) {
+            log("ROUTE", "document")
+            const mime = msg.document.mime_type || ""
+            const caption = msg.caption || ""
+            try {
+                const fileInfo = await bot.getFile(msg.document.file_id)
+                const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${fileInfo.file_path}`
+
+                if (mime === "application/pdf") {
+                    const result = await withTimeout(analyzePdf(fileUrl, caption), 35000)
+                    return bot.sendMessage(id, result)
+                } else if (mime.startsWith("image/")) {
+                    const result = await withTimeout(analyzeImage(fileUrl, caption), 25000)
+                    return bot.sendMessage(id, result)
+                } else {
+                    return bot.sendMessage(id, "format file ini belum didukung cuy. Kirim PDF atau gambar aja.")
+                }
+            } catch (e) {
+                log("DOC FAIL", e.message)
+                return bot.sendMessage(id, "gagal baca filenya cuy, coba lagi.")
+            }
+        }
+
+        if (!text) return
 
     log("MSG", `from ${id}: "${text}"`)
 
@@ -95,6 +146,47 @@ bot.on("message", async (msg) => {
     await typing(id)
 
     try {
+
+        /* ===== URL READER ROUTER ===== */
+        const url = extractUrl(text)
+        if (url) {
+            log("ROUTE", `url → ${url}`)
+            try {
+                const content = await withTimeout(readUrl(url), 12000)
+                const userQuestion = text.replace(url, "").trim()
+                const prompt = userQuestion
+                    ? `Ini isi halaman web dari ${url}:\n\n${content}\n\nPertanyaan user: ${userQuestion}`
+                    : `Ini isi halaman web dari ${url}:\n\n${content}\n\nRangkum isinya secara singkat dan santai.`
+                await typing(id)
+                const reply = await withTimeout(callAI(prompt), 15000)
+                return bot.sendMessage(id, reply)
+            } catch (e) {
+                log("URL FAIL", `${e.message} → fallback AI`)
+                const reply = await withTimeout(callAI(text), 12000)
+                return bot.sendMessage(id, reply)
+            }
+        }
+
+        /* ===== WEB SEARCH ROUTER ===== */
+        if (detectSearchIntent(text)) {
+            log("ROUTE", "web search")
+            try {
+                const results = await withTimeout(searchWeb(text), 10000)
+                if (results.length) {
+                    await typing(id)
+                    const prompt =
+`Ini hasil search untuk: "${text}"
+
+${results.join("\n\n")}
+
+Jawab pertanyaan user berdasarkan hasil di atas, santai dan to the point.`
+                    const reply = await withTimeout(callAI(prompt), 12000)
+                    return bot.sendMessage(id, reply)
+                }
+            } catch (e) {
+                log("SEARCH FAIL", `${e.message} → fallback AI`)
+            }
+        }
 
         /* ===== CRYPTO ROUTER ===== */
         const symbol = mapSymbol(text)
