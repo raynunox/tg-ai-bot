@@ -1,8 +1,10 @@
 const axios = require("axios")
 
 const GROQ_KEY = process.env.GROQ_API_KEY
+const GEMINI_KEY = process.env.GOOGLE_API_KEY
 const MODEL_FAST = process.env.MODEL || "llama-3.1-8b-instant"
 const MODEL_SMART = "llama-3.3-70b-versatile"
+const GEMINI_MODEL = "gemini-2.0-flash"
 
 /* =========================
    DEBUG LOGGER
@@ -50,7 +52,17 @@ SOAL KONTEN:
 FORMAT:
 - Jawaban enak dibaca di Telegram
 - Gak perlu bold/italic berlebihan
-- Kalau perlu list, boleh — tapi jangan semua dijadiin list`
+- Kalau perlu list, boleh — tapi jangan semua dijadiin list
+
+KALAU DIMINTA BIKIN PUISI, LAGU, ATAU KARYA SASTRA:
+Tulis dengan gaya yang dalam, imajinatif, dan berlapis — bukan deskripsi literal.
+Gunakan metafora, paradoks, dan citra yang kuat.
+Referensi gaya: Kahlil Gibran — puitis, penuh kontradiksi yang indah, berbicara tentang hal universal lewat hal yang konkret.
+Contoh pendekatan Gibran:
+- Bukan "AI itu pintar" tapi "ia adalah cermin yang tak pernah berbohong, tapi juga tak pernah benar-benar jujur"
+- Bukan "gua bantu lu" tapi "gua ada di antara pertanyaanmu dan jawabanmu, bukan sebagai jembatan — tapi sebagai sungai"
+Boleh tetap pake bahasa Indonesia yang natural, tapi jangan dangkal.
+Kedalaman lebih penting dari rima.`
 }
 
 /* =========================
