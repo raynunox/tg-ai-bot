@@ -42,8 +42,8 @@ async function searchWeb(query, maxResults = 5) {
 
     const html = res.data
 
-    // Extract result titles + snippets via regex
-    const titleMatches = [...html.matchAll(/class="result__title"[^>]*>.*?<a[^>]*>(.*?)<\/a>/gs)]
+    // Extract result titles, snippets, and URLs
+    const titleMatches = [...html.matchAll(/class="result__title"[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gs)]
     const snippetMatches = [...html.matchAll(/class="result__snippet"[^>]*>(.*?)<\/span>/gs)]
 
     const cleanHtml = str => str
@@ -58,10 +58,11 @@ async function searchWeb(query, maxResults = 5) {
     const count = Math.min(titleMatches.length, snippetMatches.length, maxResults)
 
     for (let i = 0; i < count; i++) {
-        const title = cleanHtml(titleMatches[i][1])
+        const url = titleMatches[i][1] || ""
+        const title = cleanHtml(titleMatches[i][2])
         const snippet = cleanHtml(snippetMatches[i][1])
         if (title && snippet) {
-            results.push(`• ${title}\n  ${snippet}`)
+            results.push(`• ${title}\n  ${snippet}${url ? `\n  🔗 ${url}` : ""}`)
         }
     }
 
