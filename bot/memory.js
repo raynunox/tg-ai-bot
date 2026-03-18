@@ -1,30 +1,46 @@
-const memory = {}
-const styles = {}
+/* =========================
+   MEMORY MODULE
+   Per-user chat history (in-memory)
+   Max 10 messages per user
+========================= */
 
-function getHistory(id){
-    if(!memory[id]) memory[id] = []
-    return memory[id]
+const store = new Map()
+const MAX_HISTORY = 10
+
+function log(tag, msg) {
+    const time = new Date().toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta" })
+    console.log(`[${time}] [${tag}] ${msg}`)
 }
 
-function pushHistory(id, role, content){
-    if(!memory[id]) memory[id] = []
-    memory[id].push({ role, content })
-
-    // ⭐ ULTRA FAST MODE → limit 6 turn
-    memory[id] = memory[id].slice(-6)
+function getHistory(userId) {
+    return store.get(String(userId)) || []
 }
 
-function setStyle(id, style){
-    styles[id] = style
+function addMessage(userId, role, content) {
+    const key = String(userId)
+    const history = store.get(key) || []
+
+    history.push({ role, content })
+
+    // Trim ke MAX_HISTORY
+    if (history.length > MAX_HISTORY) {
+        history.splice(0, history.length - MAX_HISTORY)
+    }
+
+    store.set(key, history)
+    log("MEMORY", `user ${userId} → ${history.length} messages stored`)
 }
 
-function getStyle(id){
-    return styles[id] || "casual"
+function clearHistory(userId) {
+    store.delete(String(userId))
+    log("MEMORY", `user ${userId} history cleared`)
 }
 
-module.exports = {
-    getHistory,
-    pushHistory,
-    setStyle,
-    getStyle
+function getStats() {
+    return {
+        totalUsers: store.size,
+        totalMessages: [...store.values()].reduce((sum, h) => sum + h.length, 0)
+    }
 }
+
+module.exports = { getHistory, addMessage, clearHistory, getStats }
