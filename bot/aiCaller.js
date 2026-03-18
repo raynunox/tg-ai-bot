@@ -1,7 +1,7 @@
 const axios = require("axios")
 
 const GROQ_KEY = process.env.GROQ_API_KEY
-const MODEL_FAST = "llama-3.1-8b-instant"
+const MODEL_FAST = process.env.MODEL || "llama-3.1-8b-instant"
 const MODEL_SMART = "llama-3.3-70b-versatile"
 
 /* =========================
@@ -79,27 +79,66 @@ async function callGroq(prompt, smart = false) {
 }
 
 /* =========================
+   GEMINI FALLBACK
+========================= */
+
+async function callGemini(prompt) {
+    log("GEMINI", `calling ${GEMINI_MODEL}`)
+
+    const res = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+        {
+            systemInstruction: {
+                parts: [{ text: getSystemPrompt() }]
+            },
+            contents: [
+                { role: "user", parts: [{ text: prompt }] }
+            ],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 800
+            }
+        },
+        { timeout: 10000 }
+    )
+
+    const result = res.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+    if (!result) throw new Error("empty Gemini response")
+
+    log("GEMINI", `response length: ${result.length} chars`)
+    return result
+}
+
+/* =========================
    PUBLIC callAI
-   fast → smart → error msg
+   fast → smart → gemini → error msg
 ========================= */
 
 async function callAI(prompt) {
-    // Try fast model
+    // 1. Try fast Groq
     try {
         return await callGroq(prompt, false)
     } catch (e) {
         log("FAST MODEL FAIL", e.message)
     }
 
-    // Fallback smart model
+    // 2. Fallback smart Groq
     try {
-        log("FALLBACK", "trying smart model...")
+        log("FALLBACK", "trying smart Groq model...")
         return await callGroq(prompt, true)
     } catch (e) {
         log("SMART MODEL FAIL", e.message)
     }
 
-    // Both failed
+    // 3. Fallback Gemini
+    try {
+        log("FALLBACK", "trying Gemini...")
+        return await callGemini(prompt)
+    } catch (e) {
+        log("GEMINI FAIL", e.message)
+    }
+
+    // All failed
     return "lagi capek mikir cuy… coba lagi bentar."
 }
 
