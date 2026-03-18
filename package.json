@@ -1,29 +1,14 @@
 {
-  "name": "global-ai-agent-bot",
+  "name": "tg-ai-bot",
   "version": "1.0.0",
-  "description": "Telegram Global AI Agent (Crypto + Gold + News + Gemini)",
-  "main": "index.js",
-  "type": "commonjs",
+  "description": "Telegram AI Agent",
+  "main": "bot/index.js",
   "scripts": {
     "start": "node bot/index.js"
   },
-  "keywords": [
-    "telegram-bot",
-    "ai-agent",
-    "crypto",
-    "gold",
-    "news"
-  ],
-  "author": "Bre",
-  "license": "MIT",
   "dependencies": {
     "axios": "^1.6.8",
-    "node-telegram-bot-api": "^0.65.1"
-
-    "dependencies": {
-  "axios": "^1.6.8",
-  "node-telegram-bot-api": "^0.65.1",
-  "dotenv": "^16.4.5"
-}
+    "node-telegram-bot-api": "^0.65.1",
+    "dotenv": "^16.4.5"
   }
 }
