@@ -12,9 +12,12 @@ function log(tag, msg) {
 function detectSearchIntent(text) {
     const t = text.toLowerCase()
     const keys = [
-        "cari", "search", "googling", "cek", "cariin",
+        "cari", "cariin", "coba cari", "search", "googling",
+        "cek di web", "cariin di web", "cari di web", "cari di internet",
         "siapa itu", "apa itu", "gimana cara", "tutorial",
-        "terbaru", "sekarang", "hari ini", "2024", "2025", "2026"
+        "terbaru", "sekarang", "hari ini", "2024", "2025", "2026",
+        "supplier", "rekomen", "rekomendasi", "list", "daftar",
+        "dimana", "di mana", "review", "toko", "harga"
     ]
     return keys.some(k => t.includes(k))
 }
