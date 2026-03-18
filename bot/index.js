@@ -1,5 +1,26 @@
 require("dotenv").config()
+const TelegramBot = require("node-telegram-bot-api")
 
+const bot = new TelegramBot(process.env.BOT_TOKEN,{ polling:false })
+
+async function start(){
+
+    try{
+
+        await bot.deleteWebHook()
+
+        await bot.stopPolling().catch(()=>{})
+
+        await bot.startPolling()
+
+        console.log("🚀 AI Agent Running")
+
+    }catch(e){
+        console.log("START ERROR", e.message)
+    }
+}
+
+start()
 const TelegramBot = require("node-telegram-bot-api")
 const { mapSymbol, getCryptoPrice, getGoldPriceIdr } = require("./market")
 const { getGlobalNews } = require("./news")
