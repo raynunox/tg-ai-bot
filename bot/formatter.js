@@ -1,51 +1,38 @@
-function escapeHTML(text){
-    return text
-        .replace(/&/g,"&amp;")
-        .replace(/</g,"&lt;")
-        .replace(/>/g,"&gt;")
+/* =========================
+   FORMATTER MODULE
+   Format output biar rapi di Telegram
+========================= */
+
+function formatCrypto(symbol, usd, idr, change24h) {
+    const arrow = change24h >= 0 ? "🟢" : "🔴"
+    const sign = change24h >= 0 ? "+" : ""
+    return `💰 ${symbol.toUpperCase()}
+
+USD : $${usd.toFixed(2)}
+IDR : Rp ${Math.round(idr).toLocaleString("id-ID")}
+24h : ${arrow} ${sign}${change24h.toFixed(2)}%`
 }
 
-function formatBold(text){
-    return text.replace(/\*\*(.*?)\*\*/g,"<b>$1</b>")
+function formatGold(pricePerGram) {
+    return `💰 Emas Spot
+
+Rp ${Math.round(pricePerGram).toLocaleString("id-ID")} / gram
+(estimasi, bisa berubah)`
 }
 
-function formatItalic(text){
-    return text.replace(/\*(.*?)\*/g,"<i>$1</i>")
+function formatError(context = "") {
+    const messages = [
+        "waduh error nih cuy, coba lagi bentar.",
+        "lagi ada gangguan, bentar ya.",
+        "sistem lagi ngambek, coba ulang.",
+    ]
+    const msg = messages[Math.floor(Math.random() * messages.length)]
+    return context ? `[${context}] ${msg}` : msg
 }
 
-function formatCodeBlock(text){
-    return text.replace(/```([\s\S]*?)```/g,"<pre><code>$1</code></pre>")
+function truncate(text, maxLen = 4000) {
+    if (text.length <= maxLen) return text
+    return text.slice(0, maxLen) + "\n\n…(dipotong)"
 }
 
-function formatInlineCode(text){
-    return text.replace(/`([^`]+)`/g,"<code>$1</code>")
-}
-
-function formatList(text){
-    return text.replace(/^\s*[-•]\s+/gm,"• ")
-}
-
-function formatEmojiSpacing(text){
-    return text.replace(/([🔥📈📉💰🚀])([^\s])/g,"$1 $2")
-}
-
-function splitMessage(text, limit=3900){
-    const chunks=[]
-    for(let i=0;i<text.length;i+=limit){
-        chunks.push(text.slice(i,i+limit))
-    }
-    return chunks
-}
-
-function formatTelegram(text){
-    text = escapeHTML(text)
-    text = formatCodeBlock(text)
-    text = formatInlineCode(text)
-    text = formatBold(text)
-    text = formatItalic(text)
-    text = formatList(text)
-    text = formatEmojiSpacing(text)
-    return text
-}
-
-module.exports = { formatTelegram, splitMessage }
+module.exports = { formatCrypto, formatGold, formatError, truncate }
