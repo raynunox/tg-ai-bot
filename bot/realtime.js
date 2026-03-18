@@ -1,38 +1,43 @@
-function isRealtimeQuestion(text){
+/* =========================
+   REALTIME MODULE
+   Helpers untuk info waktu & konteks realtime
+========================= */
 
-    const t = text.toLowerCase()
-
-    const keywords = [
-        "harga",
-        "price",
-        "berapa",
-        "sekarang",
-        "today",
-        "realtime",
-        "live",
-        "naik",
-        "turun",
-        "market",
-        "btc",
-        "bitcoin",
-        "emas",
-        "gold",
-        "saham",
-        "stock"
-    ]
-
-    return keywords.some(k => t.includes(k))
+function getNowWIB() {
+    return new Date().toLocaleString("id-ID", {
+        timeZone: "Asia/Jakarta",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    })
 }
 
-function realtimeStyleAnswer(topic){
-
-    return `Kalau ${topic} sekarang itu berubah terus tiap menit.
-
-Gua bisa kasih gambaran kisaran / arah market,
-tapi buat angka paling akurat lu harus cek sumber live kayak TradingView atau app market ya.`
+function getDateOnly() {
+    return new Date().toLocaleDateString("id-ID", {
+        timeZone: "Asia/Jakarta",
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    })
 }
 
-module.exports = {
-    isRealtimeQuestion,
-    realtimeStyleAnswer
+function getTimeOnly() {
+    return new Date().toLocaleTimeString("id-ID", {
+        timeZone: "Asia/Jakarta",
+        hour: "2-digit",
+        minute: "2-digit"
+    })
 }
+
+function getYear() {
+    return new Date().toLocaleString("id-ID", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric"
+    })
+}
+
+module.exports = { getNowWIB, getDateOnly, getTimeOnly, getYear }
