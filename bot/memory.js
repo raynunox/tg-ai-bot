@@ -7,7 +7,7 @@ function getHistory(id){
 
 function pushHistory(id, role, content){
     memory[id].push({role,content})
-    memory[id] = memory[id].slice(-12)
+    memory[id] = memory[id].slice(-10)
 }
 
 module.exports = { getHistory, pushHistory }
