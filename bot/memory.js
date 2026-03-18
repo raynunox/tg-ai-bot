@@ -1,4 +1,5 @@
 const memory = {}
+const styles = {}
 
 function getHistory(id){
     if(!memory[id]) memory[id] = []
@@ -6,8 +7,24 @@ function getHistory(id){
 }
 
 function pushHistory(id, role, content){
-    memory[id].push({role,content})
-    memory[id] = memory[id].slice(-10)
+    if(!memory[id]) memory[id] = []
+    memory[id].push({ role, content })
+
+    // ⭐ ULTRA FAST MODE → limit 6 turn
+    memory[id] = memory[id].slice(-6)
 }
 
-module.exports = { getHistory, pushHistory }
+function setStyle(id, style){
+    styles[id] = style
+}
+
+function getStyle(id){
+    return styles[id] || "casual"
+}
+
+module.exports = {
+    getHistory,
+    pushHistory,
+    setStyle,
+    getStyle
+}
