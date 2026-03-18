@@ -1,5 +1,8 @@
 const axios = require("axios")
 
+const CMC_KEY = process.env.CMC_API_KEY
+const GOLD_KEY = process.env.GOLD_API_KEY
+
 function log(tag, msg) {
     const time = new Date().toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta" })
     console.log(`[${time}] [${tag}] ${msg}`)
@@ -7,25 +10,30 @@ function log(tag, msg) {
 
 /* =========================
    SYMBOL MAPPER
+   text → CMC symbol
 ========================= */
 
 const SYMBOL_MAP = {
-    btc: "bitcoin", bitcoin: "bitcoin",
-    eth: "ethereum", ethereum: "ethereum",
-    bnb: "binancecoin",
-    sol: "solana", solana: "solana",
-    xrp: "ripple", ripple: "ripple",
-    doge: "dogecoin", dogecoin: "dogecoin",
-    ada: "cardano", cardano: "cardano",
-    dot: "polkadot", polkadot: "polkadot",
-    avax: "avalanche-2",
-    matic: "matic-network", polygon: "matic-network",
-    link: "chainlink", chainlink: "chainlink",
-    ltc: "litecoin", litecoin: "litecoin",
-    shib: "shiba-inu",
-    ton: "the-open-network",
-    pepe: "pepe",
-    trx: "tron", tron: "tron",
+    btc: "BTC", bitcoin: "BTC",
+    eth: "ETH", ethereum: "ETH",
+    bnb: "BNB",
+    sol: "SOL", solana: "SOL",
+    xrp: "XRP", ripple: "XRP",
+    doge: "DOGE", dogecoin: "DOGE",
+    ada: "ADA", cardano: "ADA",
+    dot: "DOT", polkadot: "DOT",
+    avax: "AVAX", avalanche: "AVAX",
+    matic: "MATIC", polygon: "MATIC",
+    link: "LINK", chainlink: "LINK",
+    ltc: "LTC", litecoin: "LTC",
+    shib: "SHIB",
+    ton: "TON",
+    pepe: "PEPE",
+    trx: "TRX", tron: "TRX",
+    sui: "SUI",
+    apt: "APT", aptos: "APT",
+    arb: "ARB", arbitrum: "ARB",
+    op: "OP", optimism: "OP",
 }
 
 function mapSymbol(text) {
@@ -34,46 +42,70 @@ function mapSymbol(text) {
 }
 
 /* =========================
-   CRYPTO PRICE
+   CRYPTO PRICE (CoinMarketCap)
 ========================= */
 
-async function getCryptoPrice(coinId) {
-    log("MARKET", `fetching crypto: ${coinId}`)
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd,idr&include_24hr_change=true`
+async function getCryptoPrice(symbol) {
+    log("MARKET", `fetching CMC: ${symbol}`)
 
-    const res = await axios.get(url, { timeout: 8000 })
-    const data = res.data[coinId]
+    // Get USD price from CMC
+    const cmcRes = await axios.get(
+        "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+        {
+            params: { symbol, convert: "USD" },
+            headers: { "X-CMC_PRO_API_KEY": CMC_KEY },
+            timeout: 8000
+        }
+    )
 
-    if (!data) throw new Error(`no data for ${coinId}`)
+    const data = cmcRes.data?.data?.[symbol]?.quote?.USD
+    if (!data) throw new Error(`no CMC data for ${symbol}`)
 
-    log("MARKET", `${coinId} → $${data.usd}`)
+    // Get IDR rate from USD
+    const fxRes = await axios.get(
+        "https://api.exchangerate-api.com/v4/latest/USD",
+        { timeout: 5000 }
+    )
+    const idrRate = fxRes.data?.rates?.IDR ?? 16000
 
-    return {
-        usd: data.usd,
-        idr: data.idr,
-        change24h: data.usd_24h_change ?? 0
-    }
+    const usd = data.price
+    const idr = usd * idrRate
+    const change24h = data.percent_change_24h ?? 0
+
+    log("MARKET", `${symbol} → $${usd.toFixed(2)} | Rp ${Math.round(idr).toLocaleString()}`)
+
+    return { usd, idr, change24h }
 }
 
 /* =========================
-   GOLD PRICE IDR
+   GOLD PRICE IDR (goldapi.io)
 ========================= */
 
 async function getGoldPriceIdr() {
-    log("MARKET", "fetching gold price...")
+    log("MARKET", "fetching goldapi.io...")
 
-    // Gold via metals-api fallback ke estimasi manual
-    const res = await axios.get(
-        "https://api.coingecko.com/api/v3/simple/price?ids=tether-gold&vs_currencies=idr",
-        { timeout: 8000 }
-    )
+    const res = await axios.get("https://www.goldapi.io/api/XAU/USD", {
+        headers: {
+            "x-access-token": GOLD_KEY,
+            "Content-Type": "application/json"
+        },
+        timeout: 8000
+    })
 
-    // tether-gold = 1 troy oz, konversi ke gram (1 troy oz = 31.1035g)
-    const pricePerOz = res.data?.["tether-gold"]?.idr
+    const pricePerOz = res.data?.price
     if (!pricePerOz) throw new Error("gold data unavailable")
 
-    const pricePerGram = pricePerOz / 31.1035
-    log("MARKET", `gold → Rp ${Math.round(pricePerGram).toLocaleString()}/gram`)
+    // Get IDR rate
+    const fxRes = await axios.get(
+        "https://api.exchangerate-api.com/v4/latest/USD",
+        { timeout: 5000 }
+    )
+    const idrRate = fxRes.data?.rates?.IDR ?? 16000
+
+    // 1 troy oz = 31.1035 gram
+    const pricePerGram = (pricePerOz * idrRate) / 31.1035
+
+    log("MARKET", `gold → $${pricePerOz}/oz | Rp ${Math.round(pricePerGram).toLocaleString()}/gram`)
 
     return Math.round(pricePerGram)
 }
