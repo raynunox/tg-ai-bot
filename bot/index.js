@@ -23,22 +23,31 @@ async function start(){
 
 start()
 
+// ⭐ SMART NEWS INTENT
 function detectNewsIntent(text){
 
     const t = text.toLowerCase()
 
-    const keys = [
-        "news",
-        "berita",
-        "update",
-        "kenapa",
-        "apa yang terjadi",
-        "global",
-        "ekonomi dunia",
-        "market kenapa"
-    ]
+    return (
+        t.includes("news") ||
+        t.includes("berita") ||
+        t.includes("kenapa") ||
+        t.includes("apa yang terjadi") ||
+        t.includes("update") ||
+        t.includes("global") ||
+        t.includes("ekonomi")
+    )
+}
 
-    return keys.some(k => t.includes(k))
+// ⭐ SAFE AI CALL (ANTI CRASH)
+async function safeAI(prompt){
+
+    try{
+        return await callAI(prompt)
+    }catch(e){
+        console.log("AI FAIL:", e.response?.data || e.message)
+        return "otak gua ngehang bentar cuy… coba ulang."
+    }
 }
 
 bot.on("message", async (msg)=>{
@@ -50,7 +59,7 @@ bot.on("message", async (msg)=>{
 
     try{
 
-        // ⭐ CRYPTO ROUTER
+        // ⭐ CRYPTO ROUTER (FAST PATH)
         const symbol = mapSymbol(text)
 
         if(symbol){
@@ -65,7 +74,7 @@ IDR : Rp ${Math.round(p.idr).toLocaleString()}
 24h : ${p.change24h.toFixed(2)}%`)
         }
 
-        // ⭐ GOLD ROUTER
+        // ⭐ GOLD ROUTER (FAST PATH)
         if(text.toLowerCase().includes("emas")){
 
             const g = await getGoldPriceIdr()
@@ -90,32 +99,39 @@ Rp ${g.toLocaleString()} / gram`)
 
 ${context}
 
-Jelaskan santai apa yang terjadi dan dampaknya.`
+Jelaskan santai ke temen:
+apa yang terjadi + dampaknya.`
 
-                const ai = await callAI(prompt)
+                const ai = await safeAI(prompt)
 
                 return bot.sendMessage(id, ai)
             }
         }
 
-        // ⭐ GENERAL AI CHAT (SAVAGE HUMAN MODE)
+        // ⭐ GENERAL AI MODE (DEFAULT SAVAGE HUMAN)
 
         const systemPrompt = `
 Lu AI super pinter tapi ngobrol kayak temen tongkrongan Indo.
 
 Natural.
 Savage halus.
-Gak formal.
-Gak textbook.
+Santai.
 Conversational.
+Kadang sarkas tipis.
 
 Ngerti crypto, emas, ekonomi dunia, tech, hal random umum.
 
-Kalau realtime → jangan halu.
-Kalau gak yakin → bilang kemungkinan.
+Kalau user tanya realtime:
+jangan sok yakin.
+Kasih kisaran / kemungkinan.
+
+Jawaban jangan textbook.
+Jangan formal.
+Jangan bullet list mulu.
+Bikin feel ngobrol hidup.
 `
 
-        const reply = await callAI(systemPrompt + "\nUser: " + text)
+        const reply = await safeAI(systemPrompt + "\nUser: " + text)
 
         return bot.sendMessage(id, reply)
 
